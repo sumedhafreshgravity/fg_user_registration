@@ -1,0 +1,193 @@
+
+<?php
+/**
+ *@file module file of fg_user_registration
+ *@author Sumedha Deshpande
+ */
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\apigee_edge_teams\Entity\TeamRoleInterface;
+use Drupal\Core\Database\Database;
+use Drupal\Component\Render\FormattableMarkup;
+use \Drupal\Core\Url;
+
+function fg_user_registration_preprocess_page(&$variables) {
+      $current_path = \Drupal::service('path.current')->getPath();
+      if(!str_contains($current_path,'members')) {
+          return;
+      }
+      if (!\Drupal::currentUser()->hasPermission('accept own team invitation')) {
+        return;
+      }
+      $all_elements =explode("/", $current_path);
+      $org_name =$all_elements[2];
+      $build['org_list'] = array(
+        '#type' => 'fieldset',
+        '#title' => "<h3>". t('Membership Requests') ."</h3>",
+        '#collapsible' => TRUE, // Added
+        '#collapsed' => TRUE,  // Added
+      );
+      $conn = Database::getConnection();
+      // Prepare _sortable_ table header
+      $header = array(
+        array('data' => t('Memeber Name'), 'field' => 'member_name'),
+        array('data' => t('Status'), 'field' => 'membership_status'),
+        array('data' => t('Member Email'), 'field' => 'member_email'),
+        array('data' => t('Application Date'), 'field' => 'application_date'),
+        array('data' => t('Rejection Reson'), 'field' => 'rejection_reason'),
+        array('data' => t('Operation'),'field' => 'rid'),
+      );
+      $query =  $conn->select('org_membership_request','membership');
+      $query->fields('membership', array('org_name','member_name','membership_status','member_email','application_date','rejection_reason','rid'))
+            ->condition('org_name',$org_name , '=');
+      $table_sort = $query->extend('Drupal\Core\Database\Query\TableSortExtender')->orderByHeader($header);
+      $pager = $table_sort->extend('Drupal\Core\Database\Query\PagerSelectExtender')->limit(10);
+      $result = $pager->execute();
+      $records =  $result->fetchAll();
+      $num_results = count($records);
+      if($num_results == 0) {
+        $buildempty = array(
+          '#markup' => t('No memebrship requests.')
+        );
+        return $buildempty;
+      }
+      $row_count = 0;
+      $url = Url::fromUri('internal:/membersip-status/');
+      foreach($records as $row) {
+          $temp_a_row = (array) $row;
+          $a_row['member_name'] = $temp_a_row['member_name'];
+          $a_row['membership_status'] = $temp_a_row['membership_status'];
+          $a_row['member_email'] = $temp_a_row['member_email'];
+          $a_row['application_date'] = $temp_a_row['application_date'];
+          $a_row['rejection_reason'] = $temp_a_row['rejection_reason'];
+          $a_row['rid'] = $temp_a_row['rid'];
+          if($a_row['membership_status']== "Pending") {
+            $a_row['rid'] =  array('data' => new FormattableMarkup('<a href=":link">@name</a>',
+            [':link' => $url->toString() . $a_row['rid'],
+            '@name' => "Approve/Reject"]));
+            $row_count+= 1;
+          } else {
+            $a_row['rid']= array('data' => '-');
+          }
+          $rows[] = array('data' => $a_row);
+      }
+
+      /*$build['org_list']["message"] = array(
+          '#markup' => "<div class='membership-title'><h2>" . t('Membership Requests') . "</h2></div>"
+      );*/
+      $message ="";
+      if($row_count == 0) {
+        $message = "No pending requests.";
+      }else {
+        $message = $row_count . " pending requests.";
+      }
+      $build['org_list']["another info"] = array(
+        '#markup' => "<div class='membership-details'><h4>" . t($message) . "</h4></div>"
+      );
+      $build['org_list']['registration_table'] = array(
+          '#theme' => 'table', '#header' => $header,
+          '#rows' => $rows
+      );
+      $build['org_list']['pager'] = array(
+      '#type' => 'pager'
+      );
+      $output = \Drupal::service('renderer')->render($build);
+
+      $variables['page']['content']['new_content']= array(
+          '#type' => 'markup',
+          '#markup' => $output
+      );
+}
+
+function fg_team_member_form_submit($form, FormStateInterface $form_state) {
+    //assign a member to a team
+    //add_team_member();
+}
+function add_team_member($member_email,$team_name,$team_role) {
+  $emails =array($member_email);
+  $selected_roles = array($team_role);
+
+  // Add default member role.
+  $selected_roles = [TeamRoleInterface::TEAM_MEMBER_ROLE => TeamRoleInterface::TEAM_MEMBER_ROLE] + $selected_roles;
+  $teamInvitationStorage = \Drupal::entityTypeManager()->getStorage('team_invitation');
+  // Create an invitation for each email.
+  foreach ($emails as $email) {
+     $teamInvitationStorage->create([
+      'team' => ['target_id' => $team_name],
+      'team_roles' => array_values(array_map(function (string $role) {
+        return ['target_id' => $role];
+      }, $selected_roles)),
+      'recipient' => $email,
+      'invited_by' =>"self"
+    ])->save();
+  }
+
+  $context = [
+    '@developers' => implode(', ', $emails),
+    '@team' =>  $team_name,
+    '@team_label' => mb_strtolower("Organization"),
+  ];
+
+   \Drupal::messenger()->addStatus(count($emails),
+     t('The following developer has been invited to the @team @team_label: @developers.', $context),
+     t('The following developers have been invited to the @team @team_label: @developers.', $context
+    ));
+}
+
+function fg_user_registration_form_submit($form, FormStateInterface $form_state) {
+
+     $team_display_name = $form_state->getValue("org_name");
+     $team_name = str_replace(" ", "_", $team_display_name);
+     //Check if team already exists
+     $query = \Drupal::entityTypeManager()->getStorage('team')->getQuery()->condition('name', $team_name);
+
+     if((bool) $query->count()->execute()) {
+      \Drupal::logger('ORG Registration ')->notice("CompanyAlreadyExists");
+       return;
+     }
+
+      // Create an Organization with given  values
+      $team_storage = \Drupal::entityTypeManager()->getStorage('team');
+      $team = $team_storage->create([
+        'name' => $team_name,
+        'displayName' => $team_display_name,
+        'status' => 'active',
+        'team_website' => $form_state->getValue('edit-first-name-0-value')
+      ]);
+
+     $team->save();
+     //print_r("Organization Created");
+     add_team_member($form_state->getValue("mail"),$team_name,"Administrator");
+
+     /* print_r("Member Added in the system");
+      print '<pre>';
+      var_dump($form_state->getValue("org_name"));
+      print '</pre>';
+      die;*/
+}
+
+/**
+ * add js for the module the js.
+ * this file contains jquery code to load the conditional fields on user registration form.
+ */
+function fg_user_registration_page_attachments(array &$page) {
+  $page['#attached']['library'][] = 'fg_user_registration/fg_user_registration_js';
+  $page['#attached']['library'][] = 'fg_user_registration/fg_user_registration_css';
+}
+/**
+* Implements hook_mail().
+* Enable the email functionality for module
+*/
+function fg_user_registration_mail($key, &$message, $params) {
+  $options = array(
+    'langcode' => $message['langcode'],
+  );
+
+  switch ($key) {
+    case 'org_registration':
+      $message['from'] = \Drupal::config('system.site')->get('mail');
+      $message['subject'] = t('Org registration: @title', array('@title' => $params['title']), $options);
+      $message['body'][] = $params['message'];
+      break;
+  }
+ }
+?>

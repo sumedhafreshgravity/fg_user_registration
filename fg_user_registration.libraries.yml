@@ -1,0 +1,8 @@
+fg_user_registration_js:
+  version: 1.x
+  js:
+    js/fg_user_registration.js: { minified: true }
+  fg_user_registration_css:
+    version: 1.x
+    css:
+     css/fg_user_registration_css.css:{}

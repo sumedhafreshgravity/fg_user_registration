@@ -1,0 +1,233 @@
+<?php
+/**
+ * @file install schema to create a table at the time of module install
+ *
+ */
+
+ use Drupal\field\Entity\FieldStorageConfig;
+
+ /**
+ * @file install schema to create a table at the time of module install
+ *
+ */
+
+function fg_user_registration_schema() {
+
+  $schema['org_registration_request'] = array(
+    'description' => 'To store the organization registration request.',
+    'fields' => array(
+      'rid' => array(
+       'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Record id.',
+      ),
+      'org_name' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'description' => 'Organization Id.',
+      ),
+      'org_displayname' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'description' => 'Display Name',
+      ),
+      'org_status' => array(
+        'type' => 'varchar',
+        'length' => '40',
+        'description' => 'Pending/Approved',
+      ),
+      'org_website' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'description' => 'Org Website',
+      ),
+      'admin_name' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'description' => 'Admin Name',
+      ),
+      'admin_email' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'description' => 'Admin Email',
+      ),
+      'registration_date' => array(
+        'description' => t('Registration date'),
+        'type' => 'varchar',
+        'mysql_type' => 'datetime',
+        'not null' => FALSE,
+      ),
+      'rejection_reason' => array(
+        'type' => 'varchar',
+        'length' => '1000',
+        'description' => 'Reason for rejection',
+      ),
+    ),
+    'primary key' => array('rid'),
+  );
+  $schema['org_membership_request'] = array(
+    'description' => 'To store the organization registration request.',
+    'fields' => array(
+      'rid' => array(
+       'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'description' => 'Record id.',
+      ),
+      'org_name' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'description' => 'Organization Id.',
+      ),
+      'member_name' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'description' => 'Display Name',
+      ),
+      'membership_status' => array(
+        'type' => 'varchar',
+        'length' => '40',
+        'description' => 'Pending/Approved',
+      ),
+      'member_email' => array(
+        'type' => 'varchar',
+        'length' => '255',
+        'description' => 'Admin Email',
+      ),
+      'application_date' => array(
+        'description' => t('Registration date'),
+        'type' => 'varchar',
+        'mysql_type' => 'datetime',
+        'not null' => FALSE,
+      ),
+      'rejection_reason' => array(
+        'type' => 'varchar',
+        'length' => '1000',
+        'description' => 'Reason for rejection',
+      ),
+    ),
+    'primary key' => array('rid'),
+  );
+  return $schema;
+}
+
+
+/**
+ * Implements hook_install().
+ *
+ */
+function fg_user_registration_install() {
+      /* $field_name = 'field_org11_alternative_text';
+        // Create the instance.
+        $instance = FieldStorageConfig::create(array(
+            'field_name' => $field_name,
+            'entity_type' => 'team',
+            'type' => 'text',
+            'label' => 'Alternative tekst',
+            'settings' => array('max_length' => 64),
+            'description' => 'En beskrivelse kommer her.',
+            'required' => TRUE,
+        ));
+        $instance->save();
+        dpm("installed successfully"); */
+//step 2
+    /*    \Drupal\field\Entity\FieldStorageConfig::create(array(
+            'field_name' => 'field_text',
+            'entity_type' => 'node',
+            'type' => 'text',
+            'cardinality' => -1,
+        ))->save();
+
+        \Drupal\field\Entity\FieldConfig::create([
+            'field_name' => 'field_text',
+            'entity_type' => 'node',
+            'bundle' => 'article',
+            'label' => 'A Text field',
+          ])->save();
+
+        //entity_get_form_display('node', 'article', 'default')
+        $display = \Drupal::service('entity_display.repository')->getFormDisplay('node', 'article');
+        $display->setComponent('field_text', array(
+                'type' => 'text',
+            ))
+            ->save();
+          //  entity_get_display('node', 'page', 'default')
+          $display = \Drupal::service('entity_display.repository')->getViewDisplay('node', 'article');
+          $display->setComponent('field_text', array(
+              'type' => 'text_default',
+            ))
+            ->save();
+            $field_config = \Drupal\field\Entity\FieldStorageConfig::loadByName('node', 'field_text');
+            dpm($field_config);*/
+        // Create a team website field under team entity
+        \Drupal\field\Entity\FieldStorageConfig::create(array(
+            'field_name' => 'team_website',
+            'entity_type' => 'team',
+            'type' => 'text',
+            'cardinality' => 1,
+        ))->save();
+
+        \Drupal\field\Entity\FieldConfig::create([
+            'field_name' => 'team_website',
+            'entity_type' => 'team',
+            'bundle' => 'team',
+            'label' => 'Organization Website',
+        ])->save();
+
+        //entity_get_form_display('node', 'article', 'default')getFormDisplay
+        $display = \Drupal::service('entity_display.repository')->getFormDisplay('team', 'team');
+        $display->setComponent('team_website', array(
+                'type' => 'string_textfield',
+                'disabled' =>FALSE,
+            ))
+            ->save();
+        //  entity_get_display('node', 'page', 'default');
+            \Drupal::service('entity_display.repository')
+            ->getViewDisplay('team', 'team', 'default')
+            ->setComponent('team_website', array(
+              'type' => 'text_default',
+            ))->save();
+
+ // Create a signature_key field under team entity
+        \Drupal\field\Entity\FieldStorageConfig::create(array(
+          'field_name' => 'signature_key',
+          'entity_type' => 'team',
+          'type' => 'file',
+          'cardinality' => 1,
+          'uri_scheme' => 'public',
+          'file_extensions' => 'png jpg jpeg',
+      ))->save();
+
+      \Drupal\field\Entity\FieldConfig::create([
+          'field_name' => 'signature_key',
+          'entity_type' => 'team',
+          'bundle' => 'team',
+          'label' => 'Signature Key',
+      ])->save();
+
+      //entity_get_form_display('node', 'article', 'default')getFormDisplay
+      $display = \Drupal::service('entity_display.repository')->getFormDisplay('team', 'team');
+      $display->setComponent('signature_key', array(
+              'label' => 'above',
+              'type' => 'file_generic',
+          ))->save();
+      //entity_get_display('node', 'page', 'default');
+      \Drupal::service('entity_display.repository')
+      ->getViewDisplay('team', 'team', 'default')
+      ->setComponent('signature_key', array(
+        'type' => 'file_default',
+      ))->save();
+}
+function fg_user_registration_uninstall() {
+    // Make sure the field doesn't already exist.
+    //FieldStorageConfig::loadByName('node', 'field_text')->delete();
+    if(FieldStorageConfig::loadByName('team', 'team_website')) {
+      FieldStorageConfig::loadByName('team', 'team_website')->delete();
+    }
+    if(FieldStorageConfig::loadByName('team', 'signature_key')) {
+      FieldStorageConfig::loadByName('team', 'signature_key')->delete();
+    }
+    \Drupal::database()->schema()->dropTable('org_registration_request');
+    \Drupal::database()->schema()->dropTable('org_membership_request');
+}

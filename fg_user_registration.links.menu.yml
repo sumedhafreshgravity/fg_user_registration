@@ -1,0 +1,15 @@
+fg_user_registration.org:
+  title: 'Register'
+  description: 'ORgnization/Member Onboarding page'
+  parent: main
+  menu_name: main
+  route_name: fg_user_registration.org_onbording
+  requirements:
+      _access: 'TRUE'
+
+fg_user_registration.manage_team_applications:
+  title: 'Manage Team Applications'
+  route_name: fg_user_registration.org_applications
+  description: 'Manage Team Applications'
+  parent: system.admin_config_edge
+  weight: 99
